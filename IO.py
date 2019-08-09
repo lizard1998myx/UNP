@@ -11,7 +11,7 @@ class SearcherIO(Searcher):
 
     @staticmethod
     def version():
-        version = "V1.0 - 20190808"
+        version = "V4.0 - 20190808"
         return version
 
     def echo(self):
@@ -19,24 +19,38 @@ class SearcherIO(Searcher):
         print("mode: " + self.mode)
         print("start: " + str(self.start))
         print("end: " + str(self.end))
-        print("string: " + self.string)
+        localstring = self.string
+        localstring = localstring.replace("abcdefghijklmnopqrstuvwxyz", "a-z")
+        localstring = localstring.replace("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "A-Z")
+        localstring = localstring.replace("0123456789", "0-9")
+        print("string: " + localstring)
         print("list: " + str(self.list))
 
     def chmod(self):
         mode = input("Enter mode[" + self.mode + "]:")
         if mode != "":
-            if mode[0].lower() == "p":
-                self.mode = "password"
-            if mode[0].lower() == "u":
-                self.mode = "username"
+            if mode[0].lower() == "a":
+                self.mode = "auto"
+            elif mode[0].lower() == "p":
+                if mode[-2:].lower == "id":
+                    self.mode = "password_ID"
+                else:
+                    self.mode = "password"
+            elif mode[0].lower() == "u":
+                if mode[-2:].lower() == "cn":
+                    self.mode = "username_CN"
+                elif mode[-2:].lower() == "no":
+                    self.mode = "username_NO"
+                else:
+                    self.mode = "username"
 
     def chrange(self):
         start = input("Enter start[" + str(self.start) + "]:")
         end = input("Enter end[" + str(self.end) + "]:")
         if start != "":
-            self.start = start
+            self.start = int(start)
         if end != "":
-            self.end = end
+            self.end = int(end)
 
     def chstr(self):
         command = input("Enter string setting[" + self.string + "]:")
@@ -65,16 +79,22 @@ class SearcherIO(Searcher):
         command = input("Enter list setting"+ str(self.list) + ":")
         if command == "":
             return
-        elif command[0] == "c": # 清空
+        if command[0] == 'f':  # 文件读取
+            self.loadtable()
+            return
+        if command[0] == "c":  # 清空
             self.list = []
             self.chlist()
-        else:
+        if command != "":
             while True:
                 element = input("Append list element/Stop:")
                 if element == "":
                     return
                 else:
                     self.list.append(element)
+
+    def loadtable(self):
+        self.list = ActTable(input("Enter filename:")).userlist()
 
     @staticmethod
     def example():
@@ -100,7 +120,7 @@ class LoginerIO(Loginer):
 
     @staticmethod
     def version():
-        version = "V1.0 - 20190808"
+        version = "V4.1 - 20190808"
         return version
 
     def echo(self):
@@ -130,8 +150,8 @@ class LoginerIO(Loginer):
             if username == "" or password == "":
                 return
             else:
-                actt.record([username, password,
-                             "Saved " + datetime.datetime.now().strftime('%Y-%m-%d')])
+                actt.record(list=[username, password,
+                                  "Saved " + datetime.datetime.now().strftime('%Y-%m-%d')])
 
     @staticmethod
     def example():
@@ -149,5 +169,3 @@ class LoginerIO(Loginer):
                 else:
                     loginer.active()
                 return
-
-
