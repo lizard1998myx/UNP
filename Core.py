@@ -1,4 +1,4 @@
-import requests, sys, csv
+import requests, sys, csv, re
 
 
 class Account:
@@ -6,9 +6,10 @@ class Account:
         self.username = str(username)
         self.password = str(password)
         self.accessibility = False
-        self.situation = False
+        self.existence = False
         self.description = "Initialized"
         self._resp = None
+        self._error = 0
         if name is None:
             self.name = self.username
         else:
@@ -93,47 +94,53 @@ class Account:
     def load(self):
         try:
             self._getresp()
-        except ConnectionError:
+        except BaseException:  # 如果连接出现故障，自动重试
+            if self._error > 2:
+                input("[Error] Check Internet connection")
+                self._error = 0
+            self._error += 1
             self.load()
+        self._error = 0
+
         if self._resp.text.find('success') != -1:  # 如果登录成功
             if self._resp.text.find('å½åå·²ç¨(') != -1:  # 如果已有账号登录
                 Account.quit()
                 self.load()
             else: # 真的成功
                 self.accessibility=True
-                self.situation=True
+                self.existence=True
                 self.description='OK'
         elif self._resp.text.find('fail') != -1:  # 如果登录失败
             if self._resp.text.find('æ å¯ç¨å©ä½æµé!') != -1:  # 如果没有流量剩余
-                self.situation=True
+                self.existence=True
                 self.description="Data Out"
             elif self._resp.text.find('ç¨æ·ä¸å­å¨,è¯·è¾å¥æ­£ç¡®çç¨æ·å!') != -1:  # 如果账号不存在
-                self.situation=False
+                self.existence=False
                 self.description="Not Exist"
             elif self._resp.text.find('å¯ç ä¸å¹é,è¯·è¾å¥æ­£ç¡®çå¯ç !') != -1:  # 如果密码错误
-                self.situation=True
+                self.existence=True
                 self.description="Pwd Wrong"
             else:
-                self.situation=False
+                self.existence=False
                 self.description="Unknown" # + str(self._resp.text)
 
 
 class ActTable:
     def __init__(self, filename):
-        self.filename = str(filename)
+        self.filename = validate(str(filename))
         try:
             with open(self.filename, 'w') as csvfile:
                 writer = csv.writer(csvfile)
                 writer.writerow(['username', 'password', 'note'])
         except IOError:
-            pass # 文件已存在时，不进行初始化
+            pass  # 文件已存在时，不进行初始化
 
-    def record(self, account):
-        if account is Account:
+    def record(self, account=None, list=None):
+        if account is not None:
             username = account.username
             password = account.password
             note = account.description
-        elif account is list:
+        elif list is not None:
             username = account[0]
             password = account[1]
             note = account[2]
@@ -157,7 +164,7 @@ class ActTable:
                     if len(data) >= 3:
                         print(data)
                         if data[2] in ['OK', 'Data Out']:
-                            output.record(data)
+                            output.record(list=data)
             print("LOADED (" + inputfile + ")")
         input("Combine DONE!")
 
@@ -169,6 +176,16 @@ class ActTable:
                     if data[0] != 'username':  # 跳过第一行
                         yield Account(username=data[0], password=data[1])
 
+    def userlist(self):
+        userlist = []
+        with open(self.filename, 'r') as csvfile:
+            reader = csv.reader(csvfile)
+            for data in reader:
+                if len(data) >= 3:
+                    if data[0] != 'username':  # 跳过第一行
+                        userlist.append(data[0])
+        return userlist
+
     @staticmethod
     def example():
         outputname = input("Enter output filename:")
@@ -179,3 +196,8 @@ class ActTable:
                 inputlist.append(inputname)
             else:
                 ActTable.combine(inputlist, outputname)
+
+
+def validate(filename):
+    illegalstr = r"[\/\\\:\*\?\"\<\>\|]"  # '/ \ : * ? " < > |'
+    return re.sub(illegalstr, "_", filename)  # 替换为下划线
